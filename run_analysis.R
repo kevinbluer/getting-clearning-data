@@ -1,90 +1,64 @@
-# 1. Merges the training and the test sets to create one data set
 
-# create an empty dataframe based on the features (features.txt)
+# set the path and name (update to your own local path when testing)
+filePath <- "/Users/bluer/Developer/ds-getting-clearning-data/dataset/"
+fileName <- "dataset.zip"
+filePathAndName <- paste(filePath, fileName, sep="")
 
-# loading the headers
-m <- matrix(0, ncol = 561, nrow = 0)
-df <- data.frame(m, check.names = TRUE, stringsAsFactors=FALSE)
-
-# don't include (or remove) if it doesn't have mean or standard deviation in the name
-
-features="/Users/bluer/Developer/ds-getting-clearning-data/uci-har-dataset/features.txt"
-data = scan(features, sep="\n", what="string")
-
-colnames(df) = data
-
-# loading the headers
-m <- matrix(0, ncol = 561, nrow = 0)
-df <- data.frame(m, check.names = TRUE, stringsAsFactors=FALSE)
-
-# don't include (or remove) if it doesn't have mean or standard deviation in the name
-
-features="/Users/bluer/Developer/ds-getting-clearning-data/uci-har-dataset/features.txt"
-data = scan(features, sep="\n", what="string")
-
-colnames(df) = data
-
-# load the training and test data sets (note that the n = 5 was used to speed up loading during development)
-
-xTestFile="/Users/bluer/Developer/ds-getting-clearning-data/uci-har-dataset/test/X_test.txt"
-xTest <- readLines(xTestFile)
-
-xTrainFile="/Users/bluer/Developer/ds-getting-clearning-data/uci-har-dataset/train/X_train.txt"
-xTrain <- readLines(xTrainFile)
-
-# 'merges' (or more specifically appends) the corresponding files
-signals <- c(xTest, xTrain)
-
-# loops through the character vector
-for (i in signals) {
-  
-  # splits out each row (explicitly taking into account occasions where there is more than one space)
-  z <- strsplit(trimws(i), "\\s+")
-  
-  # unlist and convert to numerics
-  v <- as.numeric(unlist(z))
-  
-  # add a new row to the dataframe
-  df[nrow(df)+1,] <- v
-  
+# download the dataset
+if (!file.exists(filePathAndName)){
+  dir.create(file.path("/Users/bluer/Developer/ds-getting-clearning-data/", "dataset"), showWarnings = FALSE)
+  dataSource <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+  download.file(dataSource, filePathAndName)
 }
 
-# read line-by-line (given the data is not csv, tsv, etc)
-yTestFile="/Users/bluer/Developer/ds-getting-clearning-data/uci-har-dataset/test/y_test.txt"
-yTest <- readLines(yTestFile)
+# set working directory
+setwd(filePath)
 
-yTrainFile="/Users/bluer/Developer/ds-getting-clearning-data/uci-har-dataset/train/y_train.txt"
-yTrain <- readLines(yTrainFile)
+# unzip the directory
+unzip(fileName)
 
-# 'merges' (or more specifically appends) the corresponding files
-y <- c(yTest, yTrain)
+# read the activity labels and features and set the names
+activity_labels <- read.table("UCI HAR Dataset/activity_labels.txt")
+features <- read.table("UCI HAR Dataset/features.txt")
+names(activity_labels) <- c("activityId", "activityDesc")
 
-# 2. Extracts only the measurements on the mean and standard deviation for each measurement.
+# read the X training data and set the column name
+X_train <- read.table("UCI HAR Dataset/train/X_train.txt")
+names(X_train) <- features[,2]
 
-drops <- vector(mode="character")
+# read the Y training dataand set the column name
+y_train <- read.table("UCI HAR Dataset/train/y_train.txt")
+names(y_train) <- c("activityId")
 
-# drop everything that doesn't contain a reference to mean ("mean") or standard deviation ("std") 
-for (i in names(df)) {
-  if (!length(x <- grep("mean", i)) && !length(y <- grep("std", i)))
-    drops <- c(drops, i) 
-}
+# read the subject data and set the column name
+subject_train <- read.table("UCI HAR Dataset/train/subject_train.txt")
+names(subject_train) <- "subjectId"
 
-df <- df[ , !(names(df) %in% drops)]
+# read the X test data and set the column name
+X_test<-read.table("UCI HAR Dataset/test/X_test.txt")
+names(X_test) <- features[,2]
 
-# TODO - consider spliting out the activities into separate files
+# read the Y test data and set the column name
+y_test<-read.table("UCI HAR Dataset/test/y_test.txt")
+names(y_test) <- c("activityId")
 
-# 3. Uses descriptive activity names to name the activities in the data set
+# read the subject test data and set the column name
+subject_test<-read.table("UCI HAR Dataset/test/subject_test.txt")
+names(subject_test) <- "subjectId"
 
-# NOTE - Activities not included
+# combine the training and test data 
+training <- cbind(y_train, subject_train, X_train)
+test <- cbind(y_test, subject_test, X_test)
+mergedData <- rbind(training, test)
 
-# 4. Appropriately labels the data set with descriptive variable names.
+# remove anything non 'mean' or 'sd/std' related 
+cols <- grepl(".*subjectId.*|.*activityId*|.*[Mm]ean.*|.*[Ss]td.*", names(mergedData))
+mergedData <- mergedData[,cols]
 
-# NOTE - The data frame has descriptive labels (as used in the features.txt). See saved version for examples
+# merge for the descriptive activity names
+mergedData <- merge(activity_labels, mergedData, by.x="activityId", by.y="activityId")
 
-# Saving out the data frame to CSV
+# tidy the data and save the output
+output <- aggregate(.~ subjectId + activityDesc, data=mergedData, mean)
+write.table(output, file="tidyataset.csv", sep=",", row.names=FALSE)
 
-write.table(df, file = "/Users/bluer/Developer/ds-getting-clearning-data/features.csv", sep = ",", col.names=NA)
-
-# 5. From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
-
-# Note - Ran out of time for this task :)
